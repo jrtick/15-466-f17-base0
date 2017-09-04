@@ -20,4 +20,8 @@ Sheperd Dog Game:
 *collision with OOB and sheep results in game over
 *sheep speed gradually increases
 
-*sheperd dog moves by mouse? Maybe keyboard instead
+*sheperd dog moves by mouse
+
+
+This game is based off of the following design document:
+	http://graphics.cs.cmu.edu/courses/15-466-f17/game0-designs/hungyuc/
