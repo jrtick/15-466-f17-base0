@@ -10,16 +10,28 @@
 #include <time.h> //used for random seed
 #include <math.h> //used for sheep positioning
 
+bool close_enough(float x, float y){
+	float absdif = x-y;
+	if(absdif<0) absdif *= -1;
+	bool same = (absdif <= 0.00001f);
+	if(same) printf("%.4f = %.4f\n",x,y);
+	else     printf("%.4f != %.4f\n",x,y);
+	return same;
+}
+
 class Sheep {
 public:
 	static float speed; //all sheep have same speed
 	static float radius; //all sheep are the same size
 	static glm::u8vec4 color; //all sheep have the same color
+
 	glm::vec2 pos,vel; //different pos & vel
+	bool dogCollide;
 	Sheep(){}
 	Sheep(glm::vec2 pos, glm::vec2 vel){
 		this->pos = pos;
 		this->vel = vel;
+		dogCollide = false;
 	}
 	bool collision(Sheep other){
 		//tl stands for top-left corner
@@ -36,11 +48,12 @@ public:
 	}
 };
 //starting sheep params
-float Sheep::speed = 0.1;
+float Sheep::speed = 0.025;
 float Sheep::radius = 0.1;
 glm::u8vec4 Sheep::color = glm::u8vec4(0xff,0xff,0xff,0xff);
-#define SHEEP_COUNT 5
-
+#define SHEEP_COUNT 3
+#define DOG_SCALE 1.f
+#define SPEEDUP 0.2f
 
 int main(int argc, char **argv) {
 	//Configuration:
@@ -116,9 +129,10 @@ int main(int argc, char **argv) {
 	//SHEEP
 	Sheep sheeps[SHEEP_COUNT];
 	for(int i=0;i<SHEEP_COUNT;i++){
-		int randdir = rand() % 4;
 		float angle = 2*3.14159265/SHEEP_COUNT*i;
-		glm::vec2 pos = glm::vec2(0.2*sin(angle),0.2*cos(angle));
+		glm::vec2 pos = 0.3f*glm::vec2(sin(angle),cos(angle));
+		
+		int randdir = rand() % 4;
 		switch(randdir){ //can only go north, south, east, or west
 		case 0:
 			sheeps[i] = Sheep(pos,glm::vec2(Sheep::speed,0));
@@ -184,27 +198,61 @@ int main(int argc, char **argv) {
 				for(int i=0;i<SHEEP_COUNT;i++){
 					sheeps[i].pos += sheeps[i].vel * elapsed; //update sheep pos
 
-					for(int j=0;j<i;j++){ //check sheep collisions
-						if(sheeps[i].collision(sheeps[j])){
-							sheeps[i].vel *= -1;
-							sheeps[j].vel *= -1;
-						}
-					}
-
-					//sheep/dog collision
-					glm::vec2 dogTL = dog - glm::vec2(Sheep::radius,Sheep::radius),
-					          dogBL = dog + glm::vec2(Sheep::radius,Sheep::radius);
-					if(sheeps[i].collision(dogTL,dogBL)) sheeps[i].vel *= -1;
-					
 					//sheep/OOB collision
 					if(sheeps[i].collision(boundaries[0]-fence_pad,boundaries[1]+fence_pad) ||
 					   sheeps[i].collision(boundaries[1]-fence_pad,boundaries[2]+fence_pad) ||
-					   sheeps[i].collision(boundaries[2]-fence_pad,boundaries[3]+fence_pad) ||
-					   sheeps[i].collision(boundaries[3]-fence_pad,boundaries[0]+fence_pad))
+					   sheeps[i].collision(boundaries[3]-fence_pad,boundaries[2]+fence_pad) ||
+					   sheeps[i].collision(boundaries[0]-fence_pad,boundaries[3]+fence_pad))
 						should_quit = true;
+
+					//sheep/dog collision
+					glm::vec2 dogTL = dog - DOG_SCALE*glm::vec2(Sheep::radius,Sheep::radius),
+					          dogBL = dog + DOG_SCALE*glm::vec2(Sheep::radius,Sheep::radius);
+					if(sheeps[i].collision(dogTL,dogBL)){
+						if(!sheeps[i].dogCollide){
+							sheeps[i].vel *= -1;
+							sheeps[i].dogCollide = true;
+						}
+					}else if(sheeps[i].dogCollide) sheeps[i].dogCollide = false;
+
+					//sheep/sheep collision
+					for(int j=0;j<i;j++){
+						if(sheeps[i].collision(sheeps[j])){
+							//get pos and vel before collision
+							glm::vec2 vel1 = sheeps[i].vel,
+							          vel2 = sheeps[j].vel;
+							glm::vec2 prev1 = sheeps[i].pos - vel1*elapsed,
+							          prev2 = sheeps[j].pos - vel2*elapsed;
+
+							//reset to pre-collision
+							sheeps[i].pos = prev1;
+							sheeps[j].pos = prev2;
+
+							if(close_enough(vel1.x,-vel2.x) &&
+							   close_enough(vel1.y,-vel2.y)){
+								printf("Head on! (%.4f,%.4f) vs (%.4f,%.4f)\n",vel1.x,vel1.y,vel2.x,vel2.y);
+								//direct collision
+								sheeps[i].vel *= -1;
+								sheeps[j].vel *= -1;
+							}else{ //t-bone collision
+								printf("T-bone! (%.4f,%.4f) vs (%.4f,%.4f)\n",vel1.x,vel1.y,vel2.x,vel2.y);
+								//calculate who gets to the collision first
+								glm::vec2 dist = prev2-prev1;
+								float time1 = (vel1.x*dist.y-vel1.y*dist.x) / (vel2.x*vel1.y-vel1.x*vel2.y);
+								float time2 = close_enough(vel1.x,0)? -dist.x/vel2.x : -dist.y/vel2.y;
+								if(time1 <= time2){ //sheep j 'rams' sheep i
+									sheeps[i].vel = sheeps[j].vel;
+									sheeps[j].vel *= -1;
+								}else{ //sheep i 'rams' sheep j
+									sheeps[j].vel = sheeps[i].vel;
+									sheeps[i].vel *= -1;
+								}
+							}
+						}
+					}
 				}
 				
-				Sheep::speed += elapsed*0.1f; //sheep speed increases over time
+				Sheep::speed += elapsed*SPEEDUP; //sheep speed increases over time
 			}
 		}
 
@@ -220,15 +268,15 @@ int main(int argc, char **argv) {
 			glm::u8vec4 fence_color = glm::u8vec4(0xa7,0x71,0x50,0xff);
 			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[1]+fence_pad,fence_color);
 			draw.add_rectangle(boundaries[1]-fence_pad,boundaries[2]+fence_pad,fence_color);
-			draw.add_rectangle(boundaries[2]-fence_pad,boundaries[3]+fence_pad,fence_color);
-			draw.add_rectangle(boundaries[3]-fence_pad,boundaries[0]+fence_pad,fence_color);
+			draw.add_rectangle(boundaries[3]-fence_pad,boundaries[2]+fence_pad,fence_color);
+			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[3]+fence_pad,fence_color);
 
 			//draw sheep
 			glm::vec2 rad2 = glm::vec2(Sheep::radius,Sheep::radius);
 			for(int i=0;i<SHEEP_COUNT;i++)
 				draw.add_rectangle(sheeps[i].pos-rad2,sheeps[i].pos+rad2,Sheep::color);
 			//draw dog
-			draw.add_rectangle(dog-rad2,dog+rad2,glm::u8vec4(0xff,0x00,0x00,0xff));
+			draw.add_rectangle(dog-DOG_SCALE*rad2,dog+DOG_SCALE*rad2,glm::u8vec4(0xff,0x00,0x00,0xff));
 
 			draw.draw();
 		}
