@@ -7,7 +7,7 @@ ifeq ($(UNAME),Darwin)
 	SDL_LIBS=`sdl2-config --libs` -framework OpenGL
 else
 	#assume Linux/g++
-	CPP=g++ -g -Wall -Werror
+	CPP=g++ -std=c++11 -g -Wall -Werror
 	SDL_LIBS=`sdl2-config --libs` -lGL
 endif
 
