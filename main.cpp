@@ -12,11 +12,8 @@
 
 bool close_enough(float x, float y){
 	float absdif = x-y;
-	if(absdif<0) absdif *= -1;
-	bool same = (absdif <= 0.00001f);
-	if(same) printf("%.4f = %.4f\n",x,y);
-	else     printf("%.4f != %.4f\n",x,y);
-	return same;
+	if(absdif<0) return absdif >= -0.00001f;
+	else         return absdif <=  0.00001f;
 }
 
 class Sheep {
@@ -47,13 +44,18 @@ public:
 		       tl1.y < bl2.y && tl1.y + 2*radius > tl2.y;
 	}
 };
-//starting sheep params
-float Sheep::speed = 0.025;
-float Sheep::radius = 0.1;
+
+//GAME PARAMETERS
 glm::u8vec4 Sheep::color = glm::u8vec4(0xff,0xff,0xff,0xff);
-#define SHEEP_COUNT 3
-#define DOG_SCALE 1.f
+float Sheep::speed = 0.1f;
+float Sheep::radius = 0.1f;
+#define SHEEP_COUNT 5
+#define DOG_SCALE 1.f //as compared to sheep
+#define DOG_COLOR glm::u8vec4(0xff,0x00,0x00,0xff)
+#define FENCE_COLOR glm::u8vec4(0xa7,0x71,0x50,0xff)
+#define GROUND_COLOR_HACK 0,1,0,1 //I'm so sorry
 #define SPEEDUP 0.2f
+
 
 int main(int argc, char **argv) {
 	//Configuration:
@@ -125,6 +127,7 @@ int main(int argc, char **argv) {
 	//------------  game state ------------
 	srand(time(NULL)); //random seed
 	bool paused = true;
+	float total_time = 0;
 
 	//SHEEP
 	Sheep sheeps[SHEEP_COUNT];
@@ -194,16 +197,19 @@ int main(int argc, char **argv) {
 		{ //update game state:
 			if(!paused){
 				dog = mouse; //update dog pose
+				total_time += elapsed;
 
 				for(int i=0;i<SHEEP_COUNT;i++){
 					sheeps[i].pos += sheeps[i].vel * elapsed; //update sheep pos
 
 					//sheep/OOB collision
 					if(sheeps[i].collision(boundaries[0]-fence_pad,boundaries[1]+fence_pad) ||
-					   sheeps[i].collision(boundaries[1]-fence_pad,boundaries[2]+fence_pad) ||
+					   sheeps[i].collision(boundaries[2]-fence_pad,boundaries[1]+fence_pad) ||
 					   sheeps[i].collision(boundaries[3]-fence_pad,boundaries[2]+fence_pad) ||
-					   sheeps[i].collision(boundaries[0]-fence_pad,boundaries[3]+fence_pad))
+					   sheeps[i].collision(boundaries[3]-fence_pad,boundaries[0]+fence_pad)){
+						printf("Game over! You lasted %.2f seconds\n",total_time);
 						should_quit = true;
+					}
 
 					//sheep/dog collision
 					glm::vec2 dogTL = dog - DOG_SCALE*glm::vec2(Sheep::radius,Sheep::radius),
@@ -224,7 +230,7 @@ int main(int argc, char **argv) {
 							glm::vec2 prev1 = sheeps[i].pos - vel1*elapsed,
 							          prev2 = sheeps[j].pos - vel2*elapsed;
 
-							//reset to pre-collision
+							//reset to pre-collision so collision only happens once
 							sheeps[i].pos = prev1;
 							sheeps[j].pos = prev2;
 
@@ -257,7 +263,7 @@ int main(int argc, char **argv) {
 		}
 
 		//draw output:
-		glClearColor(0.0, 1.0, 0.0, 1.0); //make background green
+		glClearColor(GROUND_COLOR_HACK); //make background green
 		glClear(GL_COLOR_BUFFER_BIT);
 
 
@@ -265,18 +271,17 @@ int main(int argc, char **argv) {
 			Draw draw;
 
 			//draw out of bounds
-			glm::u8vec4 fence_color = glm::u8vec4(0xa7,0x71,0x50,0xff);
-			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[1]+fence_pad,fence_color);
-			draw.add_rectangle(boundaries[1]-fence_pad,boundaries[2]+fence_pad,fence_color);
-			draw.add_rectangle(boundaries[3]-fence_pad,boundaries[2]+fence_pad,fence_color);
-			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[3]+fence_pad,fence_color);
+			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[1]+fence_pad,FENCE_COLOR);
+			draw.add_rectangle(boundaries[1]-fence_pad,boundaries[2]+fence_pad,FENCE_COLOR);
+			draw.add_rectangle(boundaries[3]-fence_pad,boundaries[2]+fence_pad,FENCE_COLOR);
+			draw.add_rectangle(boundaries[0]-fence_pad,boundaries[3]+fence_pad,FENCE_COLOR);
 
 			//draw sheep
 			glm::vec2 rad2 = glm::vec2(Sheep::radius,Sheep::radius);
 			for(int i=0;i<SHEEP_COUNT;i++)
 				draw.add_rectangle(sheeps[i].pos-rad2,sheeps[i].pos+rad2,Sheep::color);
 			//draw dog
-			draw.add_rectangle(dog-DOG_SCALE*rad2,dog+DOG_SCALE*rad2,glm::u8vec4(0xff,0x00,0x00,0xff));
+			draw.add_rectangle(dog-DOG_SCALE*rad2,dog+DOG_SCALE*rad2,DOG_COLOR);
 
 			draw.draw();
 		}
