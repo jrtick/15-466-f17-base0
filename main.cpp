@@ -51,7 +51,7 @@ float Sheep::speed = 0.1f;
 float Sheep::radius = 0.1f;
 #define SHEEP_COUNT 5
 #define DOG_SCALE 1.f //as compared to sheep
-#define DOG_COLOR glm::u8vec4(0xff,0x00,0x00,0xff) //red
+#define DOG_COLOR glm::u8vec4(0x00,0x00,0x00,0xff) //black
 #define FENCE_COLOR glm::u8vec4(0xa7,0x71,0x50,0xff) //brown
 #define GROUND_COLOR_HACK 0,1,0,1 //I'm so sorry. Green
 #define SPEEDUP 0.001f
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
 	//------------  game state ------------
 	srand(time(NULL)); //random seed
-	bool paused = true; //can pause game with 'p' key
+	bool paused = false; //can pause game with 'p' key
 	float total_time = 0; //keep track to tell user their score at the end
 
 	//initialize sheep
@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
 	boundaries[1] = glm::vec2(0.8,0.8);
 	boundaries[2] = glm::vec2(0.8,-0.8);
 	boundaries[3] = glm::vec2(-0.8,-0.8);
-	glm::vec2 fence_pad = glm::vec2(0.1,0.1);
+	glm::vec2 fence_pad = glm::vec2(0.025,0.025);
 
 	//------------  game loop ------------
 
