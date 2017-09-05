@@ -1,7 +1,7 @@
 ## Shepherd Dog Game
 Forked from Base0, which was written by Jim McCann for 15-466-f17 course.
 Modified by Jordan Tick
-
+![alt text](https://raw.githubusercontent.com/jrtick/15-466-f17-base0/master/screenshot.png)
 
 ## Requirements
  - modern C++ compiler
