@@ -24,11 +24,13 @@ public:
 
 	glm::vec2 pos,vel; //different pos & vel
 	bool dogCollide; //true when dog is overlapping sheep so no infinite flipping occurs
+	float lastSwitch; //time since last directional switch. Used to add randomness
 	Sheep(){}
 	Sheep(glm::vec2 pos, glm::vec2 vel){
 		this->pos = pos;
 		this->vel = vel;
 		dogCollide = false;
+		lastSwitch = 0;
 	}
 	bool collision(Sheep other){
 		//tl stands for top-left corner
@@ -47,7 +49,7 @@ public:
 
 //GAME PARAMETERS
 glm::u8vec4 Sheep::color = glm::u8vec4(0xff,0xff,0xff,0xff); //white
-float Sheep::speed = 0.1f;
+float Sheep::speed = 0.05f;
 float Sheep::radius = 0.1f;
 #define SHEEP_COUNT 5
 #define DOG_SCALE 1.f //as compared to sheep
@@ -55,7 +57,9 @@ float Sheep::radius = 0.1f;
 #define FENCE_COLOR glm::u8vec4(0xa7,0x71,0x50,0xff) //brown
 #define GROUND_COLOR_HACK 0,1,0,1 //I'm so sorry. Green
 #define SPEEDUP 0.001f
-
+#define FENCE_BOUND 0.8f
+#define FENCE_RAD 0.025f
+#define SHEEP_RESET_TIME 10.f //change sheep directions periodically
 
 int main(int argc, char **argv) {
 	//Configuration:
@@ -126,7 +130,7 @@ int main(int argc, char **argv) {
 
 	//------------  game state ------------
 	srand(time(NULL)); //random seed
-	bool paused = false; //can pause game with 'p' key
+	bool paused = true; //can pause game with 'p' key
 	float total_time = 0; //keep track to tell user their score at the end
 
 	//initialize sheep
@@ -155,16 +159,16 @@ int main(int argc, char **argv) {
 	}
 
 	//dog
-	glm::vec2 dog = glm::vec2(0.8f,-0.8f);
+	glm::vec2 dog = glm::vec2(FENCE_BOUND-FENCE_RAD-DOG_SCALE*Sheep::radius,-FENCE_BOUND+FENCE_RAD+DOG_SCALE*Sheep::radius);
 	glm::vec2 mouse = glm::vec2(0.0f, 0.0f);
 
 	//Out of Bounds
 	glm::vec2 boundaries[4];
-	boundaries[0] = glm::vec2(-0.8,0.8);
-	boundaries[1] = glm::vec2(0.8,0.8);
-	boundaries[2] = glm::vec2(0.8,-0.8);
-	boundaries[3] = glm::vec2(-0.8,-0.8);
-	glm::vec2 fence_pad = glm::vec2(0.025,0.025);
+	boundaries[0] = glm::vec2(-FENCE_BOUND,FENCE_BOUND);
+	boundaries[1] = glm::vec2(FENCE_BOUND,FENCE_BOUND);
+	boundaries[2] = glm::vec2(FENCE_BOUND,-FENCE_BOUND);
+	boundaries[3] = glm::vec2(-FENCE_BOUND,-FENCE_BOUND);
+	glm::vec2 fence_pad = glm::vec2(FENCE_RAD,FENCE_RAD);
 
 	//------------  game loop ------------
 
@@ -199,6 +203,7 @@ int main(int argc, char **argv) {
 				total_time += elapsed;
 
 				for(int i=0;i<SHEEP_COUNT;i++){
+					sheeps[i].lastSwitch += elapsed;
 					sheeps[i].pos += sheeps[i].vel * Sheep::speed * elapsed; //update sheep pos
 
 					//sheep/OOB collision
@@ -235,16 +240,22 @@ int main(int argc, char **argv) {
 
 							if(close_enough(vel1.x,-vel2.x) &&
 							   close_enough(vel1.y,-vel2.y)){
-								printf("Head on! (%.4f,%.4f) vs (%.4f,%.4f)\n",vel1.x,vel1.y,vel2.x,vel2.y);
 								//direct collision
 								sheeps[i].vel *= -1;
 								sheeps[j].vel *= -1;
 							}else{ //t-bone collision
-								printf("T-bone! (%.4f,%.4f) vs (%.4f,%.4f)\n",vel1.x,vel1.y,vel2.x,vel2.y);
 								//calculate who gets to the collision first
 								glm::vec2 dist = prev2-prev1;
-								float time1 = (vel1.x*dist.y-vel1.y*dist.x) / (vel2.x*vel1.y-vel1.x*vel2.y);
-								float time2 = close_enough(vel1.x,0)? -dist.x/vel2.x : -dist.y/vel2.y;
+								float time1,time2;
+								if(close_enough(vel1.x,0.f)){ //i moves in y, j moves in x
+									time1 = abs(dist.y/vel1.y);
+									time2 = abs(dist.x/vel2.x);
+								}else{ //i moves in x, j moves in y
+									time1 = abs(dist.x/vel1.x);
+									time2 = abs(dist.y/vel2.y);
+								}
+								
+								//based on collision, adjust velocities
 								if(time1 <= time2){ //sheep j 'rams' sheep i
 									sheeps[i].vel = sheeps[j].vel;
 									sheeps[j].vel *= -1;
@@ -254,6 +265,27 @@ int main(int argc, char **argv) {
 								}
 							}
 						}
+					}
+
+					//INTRODUCE MOVEMENT RANDOMNESS PERIODICALLY
+					if(sheeps[i].lastSwitch > SHEEP_RESET_TIME){
+						//set random direction
+						int randdir = rand() % 4;
+						switch(randdir){ //can only go north, south, east, or west
+						case 0: //right
+							sheeps[i].vel = glm::vec2(1,0);
+							break;
+						case 1: //left
+							sheeps[i].vel = glm::vec2(-1,0);
+							break;
+						case 2: //up
+							sheeps[i].vel = glm::vec2(0,1);
+							break;
+						default: //down
+							sheeps[i].vel = glm::vec2(0,-1);
+							break;
+						}
+						sheeps[i].lastSwitch = 0;
 					}
 				}
 				
