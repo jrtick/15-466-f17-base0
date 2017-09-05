@@ -10,7 +10,7 @@
 #include <time.h> //used for random seed
 #include <math.h> //used for sheep positioning
 
-bool close_enough(float x, float y){
+bool close_enough(float x, float y){ //float equality function
 	float absdif = x-y;
 	if(absdif<0) return absdif >= -0.00001f;
 	else         return absdif <=  0.00001f;
@@ -23,7 +23,7 @@ public:
 	static glm::u8vec4 color; //all sheep have the same color
 
 	glm::vec2 pos,vel; //different pos & vel
-	bool dogCollide;
+	bool dogCollide; //true when dog is overlapping sheep so no infinite flipping occurs
 	Sheep(){}
 	Sheep(glm::vec2 pos, glm::vec2 vel){
 		this->pos = pos;
@@ -37,7 +37,7 @@ public:
 		return tl1.x < tl2.x + 2*radius && tl1.x + 2*radius > tl2.x &&
 		       tl1.y < tl2.y + 2*radius && tl1.y + 2*radius > tl2.y;
 	}
-	bool collision(glm::vec2 tl2,glm::vec2 bl2){
+	bool collision(glm::vec2 tl2,glm::vec2 bl2){ //used for dog and fence collision
 		//tl stands for top-left corner, bl stands for bottom-left corner
 		glm::vec2 tl1 = this->pos - glm::vec2(radius,radius);
 		return tl1.x < bl2.x && tl1.x + 2*radius > tl2.x &&
@@ -46,22 +46,22 @@ public:
 };
 
 //GAME PARAMETERS
-glm::u8vec4 Sheep::color = glm::u8vec4(0xff,0xff,0xff,0xff);
+glm::u8vec4 Sheep::color = glm::u8vec4(0xff,0xff,0xff,0xff); //white
 float Sheep::speed = 0.1f;
 float Sheep::radius = 0.1f;
 #define SHEEP_COUNT 5
 #define DOG_SCALE 1.f //as compared to sheep
-#define DOG_COLOR glm::u8vec4(0xff,0x00,0x00,0xff)
-#define FENCE_COLOR glm::u8vec4(0xa7,0x71,0x50,0xff)
-#define GROUND_COLOR_HACK 0,1,0,1 //I'm so sorry
-#define SPEEDUP 0.2f
+#define DOG_COLOR glm::u8vec4(0xff,0x00,0x00,0xff) //red
+#define FENCE_COLOR glm::u8vec4(0xa7,0x71,0x50,0xff) //brown
+#define GROUND_COLOR_HACK 0,1,0,1 //I'm so sorry. Green
+#define SPEEDUP 0.001f
 
 
 int main(int argc, char **argv) {
 	//Configuration:
 	struct {
 		std::string title = "Game0: Sheep Herder 666";
-		glm::uvec2 size = glm::uvec2(640, 640);
+		glm::uvec2 size = glm::uvec2(640, 640); //square
 	} config;
 
 	//------------  initialization ------------
@@ -126,28 +126,30 @@ int main(int argc, char **argv) {
 
 	//------------  game state ------------
 	srand(time(NULL)); //random seed
-	bool paused = true;
-	float total_time = 0;
+	bool paused = true; //can pause game with 'p' key
+	float total_time = 0; //keep track to tell user their score at the end
 
-	//SHEEP
+	//initialize sheep
 	Sheep sheeps[SHEEP_COUNT];
 	for(int i=0;i<SHEEP_COUNT;i++){
-		float angle = 2*3.14159265/SHEEP_COUNT*i;
+		//set sheep position
+		float angle = 2*3.14159265f/SHEEP_COUNT*i;
 		glm::vec2 pos = 0.3f*glm::vec2(sin(angle),cos(angle));
 		
+		//set random direction
 		int randdir = rand() % 4;
 		switch(randdir){ //can only go north, south, east, or west
-		case 0:
-			sheeps[i] = Sheep(pos,glm::vec2(Sheep::speed,0));
+		case 0: //right
+			sheeps[i] = Sheep(pos,glm::vec2(1,0));
 			break;
-		case 1:
-			sheeps[i] = Sheep(pos,glm::vec2(-Sheep::speed,0));
+		case 1: //left
+			sheeps[i] = Sheep(pos,glm::vec2(-1,0));
 			break;
-		case 2:
-			sheeps[i] = Sheep(pos,glm::vec2(0,Sheep::speed));
+		case 2: //up
+			sheeps[i] = Sheep(pos,glm::vec2(0,1));
 			break;
-		default:
-			sheeps[i] = Sheep(pos,glm::vec2(0,-Sheep::speed));
+		default: //down
+			sheeps[i] = Sheep(pos,glm::vec2(0,-1));
 			break;
 		}
 	}
@@ -175,15 +177,12 @@ int main(int argc, char **argv) {
 			if (evt.type == SDL_MOUSEMOTION) {
 				mouse.x = (evt.motion.x + 0.5f) / float(config.size.x) * 2.0f - 1.0f;
 				mouse.y = (evt.motion.y + 0.5f) / float(config.size.y) *-2.0f + 1.0f;
-			}/* else if (evt.type == SDL_MOUSEBUTTONDOWN) {
-				ball = mouse;
-				ball_velocity = glm::vec2(0.5f, 0.5f);
-			}*/ else if (evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_ESCAPE) {
+			}else if (evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_ESCAPE) { //quit game
 				should_quit = true;
-			} else if (evt.type == SDL_QUIT) {
+			}else if (evt.type == SDL_QUIT) {
 				should_quit = true;
 				break;
-			} else if(evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_p){
+			}else if(evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_p){ //pause game
 				paused = !paused;
 				break;
 			}
@@ -200,7 +199,7 @@ int main(int argc, char **argv) {
 				total_time += elapsed;
 
 				for(int i=0;i<SHEEP_COUNT;i++){
-					sheeps[i].pos += sheeps[i].vel * elapsed; //update sheep pos
+					sheeps[i].pos += sheeps[i].vel * Sheep::speed * elapsed; //update sheep pos
 
 					//sheep/OOB collision
 					if(sheeps[i].collision(boundaries[0]-fence_pad,boundaries[1]+fence_pad) ||
@@ -215,7 +214,7 @@ int main(int argc, char **argv) {
 					glm::vec2 dogTL = dog - DOG_SCALE*glm::vec2(Sheep::radius,Sheep::radius),
 					          dogBL = dog + DOG_SCALE*glm::vec2(Sheep::radius,Sheep::radius);
 					if(sheeps[i].collision(dogTL,dogBL)){
-						if(!sheeps[i].dogCollide){
+						if(!sheeps[i].dogCollide){ //only flip velocity if just collided
 							sheeps[i].vel *= -1;
 							sheeps[i].dogCollide = true;
 						}
@@ -225,8 +224,8 @@ int main(int argc, char **argv) {
 					for(int j=0;j<i;j++){
 						if(sheeps[i].collision(sheeps[j])){
 							//get pos and vel before collision
-							glm::vec2 vel1 = sheeps[i].vel,
-							          vel2 = sheeps[j].vel;
+							glm::vec2 vel1 = sheeps[i].vel*Sheep::speed,
+							          vel2 = sheeps[j].vel*Sheep::speed;
 							glm::vec2 prev1 = sheeps[i].pos - vel1*elapsed,
 							          prev2 = sheeps[j].pos - vel2*elapsed;
 

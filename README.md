@@ -27,3 +27,7 @@ Sheperd Dog Game:
 
 To see original game design doc (by hungyuc), go to this link:
  - http://graphics.cs.cmu.edu/courses/15-466-f17/game0-designs/hungyuc/
+
+Notes:
+ - You can pause the game with 'p'
+ - Your score (total time) will be printed in the terminal upon game over.
