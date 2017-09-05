@@ -64,7 +64,7 @@ float Sheep::radius = 0.1f;
 int main(int argc, char **argv) {
 	//Configuration:
 	struct {
-		std::string title = "Game0: Sheep Herder 666";
+		std::string title = "Game0: Sheep Herder";
 		glm::uvec2 size = glm::uvec2(640, 640); //square
 	} config;
 
